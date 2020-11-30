@@ -69,6 +69,7 @@ class FattreeNet(Topo):
         # create switches..
         for switch in ft_topo.switches:
             if switch.type == 'edge switch':
+                print("es_" + str(switch.id))
                 Switches.append(self.addSwitch("es_" + str(switch.id)))
             elif switch.type == 'aggregate switch':
                 Switches.append(self.addSwitch("as_" + str(switch.id)))
@@ -119,3 +120,4 @@ def run(graph_topo):
 
 ft_topo = topo.Fattree(4)
 run(ft_topo)
+
