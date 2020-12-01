@@ -32,6 +32,24 @@ from mininet.topo import Topo
 from mininet.util import waitListening, custom
 import math
 import topo
+import re
+
+
+def location_to_dpid(core=None, pod=None, switch=None):
+    if core is not None:
+        return '0000000010%02x0000' % core
+    else:
+        return '000000002000%02x%02x' % (pod, switch)
+
+
+def ip_to_mac(ip):
+    match = re.match('10.(\d+).(\d+).(\d+)', ip)
+    pod, switch, host = match.group(1, 2, 3)
+    return location_to_mac(int(pod), int(switch), int(host))
+
+
+def location_to_mac(pod, switch, host):
+    return '00:00:00:%02x:%02x:%02x' % (pod, switch, host)
 
 
 class FattreeNet(Topo):
@@ -69,14 +87,25 @@ class FattreeNet(Topo):
         # create switches..
         for switch in ft_topo.switches:
             if switch.type == 'edge switch':
-                print("es_" + str(switch.id))
-                Switches.append(self.addSwitch("es_" + str(switch.id)))
+                Switches.append(self.addSwitch("es_" + str(switch.id), dpid=str(switch.id)))
             elif switch.type == 'aggregate switch':
-                Switches.append(self.addSwitch("as_" + str(switch.id)))
+                Switches.append(self.addSwitch("as_" + str(switch.id), dpid=str(switch.id)))
             elif switch.type == 'core switch':
-                Switches.append(self.addSwitch("cs_" + str(switch.id)))
+                Switches.append(self.addSwitch("cs_" + str(switch.id), dpid=str(switch.id)))
+        pod_num = 0
+        i = 0
+        j = 2
         for server in ft_topo.servers:
-            hostServers.append(self.addHost("host_" + str(server.id)))
+            if j == int(ft_topo.num_ports / 2) + 2:
+                j = 2
+                i = i + 1
+            if i == int(ft_topo.num_ports / 2):
+                i = 0
+                pod_num = pod_num + 1
+            hostServers.append(self.addHost(server.id,
+                                            ip='10.%d.%d.%d' % (pod_num, i, j),
+                                            mac=location_to_mac(pod_num, i, j)))
+            j = j + 1
 
         # create links..
         server_id = 0
@@ -120,4 +149,3 @@ def run(graph_topo):
 
 ft_topo = topo.Fattree(4)
 run(ft_topo)
-
