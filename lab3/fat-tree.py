@@ -111,19 +111,19 @@ class FattreeNet(Topo):
         server_id = 0
         for i in range(ft_topo.edge_switch_starting_id, ft_topo.edge_switch_ending_id + 1):
             for j in range(int(ft_topo.num_ports / 2)):
-                self.addLink(hostServers[server_id], Switches[i])
+                self.addLink(hostServers[server_id], Switches[i], bw=15, delay='5ms')
                 server_id += 1
 
         # Create Edges Between Edge Switches and Aggregate Switches..
         for i in range(ft_topo.agg_switch_starting_id, ft_topo.agg_switch_ending_id + 1):
             for j in range(int(ft_topo.num_ports / 2)):
-                self.addLink(Switches[i], Switches[int((end * math.floor(i / end) + j) - edge_switch_count)])
+                self.addLink(Switches[i], Switches[int((end * math.floor(i / end) + j) - edge_switch_count)], bw=15, delay='5ms')
 
         # Create Edges Between Aggregate Switches and Core Switches..
         for i in range(ft_topo.agg_switch_starting_id, ft_topo.agg_switch_ending_id + 1, end):
             for j in range(int(ft_topo.num_ports / 2)):
                 for k in range(int(ft_topo.num_ports / 2)):
-                    self.addLink(Switches[i + j], Switches[int(ft_topo.agg_switch_ending_id + 1 + (j * end + k))])
+                    self.addLink(Switches[i + j], Switches[int(ft_topo.agg_switch_ending_id + 1 + (j * end + k))], bw=15, delay='5ms')
 
 
 def make_mininet_instance(graph_topo):
