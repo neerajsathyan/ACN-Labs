@@ -303,8 +303,9 @@ class Fattree:
             if k == int(num_ports / 2):
                 k = 0
                 pod_num = pod_num + 1
-            self.servers.append(Node('p%d_s%d_h%d' % (pod_num, k, j), 'server'))
-            print('p%d_s%d_h%d' % (pod_num, k, j))
+            # self.servers.append(Node('p%d_s%d_h%d' % (pod_num, k, j), 'server'))
+            self.servers.append(Node(f'h{i}', 'server'))
+            # print('p%d_s%d_h%d' % (pod_num, k, j))
             j = j + 1
 
         # Create edge switches..

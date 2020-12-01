@@ -42,6 +42,14 @@ import topo
 import dijkstra
 from collections import defaultdict
 
+
+
+# def mac_to_server_id(mac_addr):
+
+
+
+#     return server_id
+
 def default_dict():
 	return defaultdict(default_dict)
 
@@ -96,7 +104,7 @@ class SPRouter(app_manager.RyuApp):
 
         # get list of dpid's of all switches
         self.switch_dpids = [switch.dp.id for switch in switch_list]
-
+        # print(self.switch_dpids)
 
         self.switch_name_to_dpid = {str(link.src.name).split("-")[0][2:] : link.src.dpid for link in link_list} 
         # print(self.switch_name_to_dpid)
@@ -167,7 +175,7 @@ class SPRouter(app_manager.RyuApp):
 
         
         #################################################################
-        src, dst = '000000002', '000000013'
+        # src, dst = '000000001', '000000014'
         #################################################################
         # print(src, dst)
 
@@ -179,13 +187,13 @@ class SPRouter(app_manager.RyuApp):
             # save shortest path for src and dst
             self.shortest_path_dict[(src, dst)] = shortest_path
 
-            print(f'\n\nDpid shortest path = {self.shortest_path_dict[(src, dst)]}\n')
+            # print(f'\n\nDpid shortest path = {self.shortest_path_dict[(src, dst)]}\n')
 
             hw_addr_shortest_path = [self.dpid_to_hw_addr[int(dpid)] for dpid in self.shortest_path_dict[(src, dst)][1:-1] if int(dpid) in self.dpid_to_hw_addr]
             hw_addr_shortest_path.insert(0, src)
             hw_addr_shortest_path.insert(len(self.shortest_path_dict[(src, dst)]) + 1, dst)
 
-            print(f'Hw_addr_shortest_path = {hw_addr_shortest_path}\n')
+            # print(f'Hw_addr_shortest_path = {hw_addr_shortest_path}\n')
 
         # current dpid
         dpid = datapath.id
@@ -241,28 +249,29 @@ class SPRouter(app_manager.RyuApp):
     def calculate_shortest_path(self, src_mac, dst_mac):
 
         # print(f'\nsrc_mac, dst_mac = {src_mac}, {dst_mac}')
+        print('src_mac, dst_mac = ',src_mac, dst_mac)
         src_server, dst_server = int(src_mac.replace('0', '').replace(':', '')), int(dst_mac.replace('0', '').replace(':', ''))
         # print(f'src_server, dst_server = {src_server}, {dst_server}\n')
         
 
         shortest_path_switches = dijkstra.shortest_path_list(self.dijkstra_table, src_server, dst_server, self.n_servers)
-        # print(f'Shortest_path = {shortest_path_switches}\n')
+        print(f'Shortest_path = {shortest_path_switches}\n')
 
         shortest_path_mininet = []
 
-        for (type, id) in shortest_path_switches:
+        # for (type, id) in shortest_path_switches:
 
-            if type == 'server':
-                continue
-                # new_type = 'host_' + str(id)
-            elif type == 'edge switch':
-                new_type = 'es_' + str(id)
-            elif type == 'aggregate switch':
-                new_type = 'as_' + str(id)
-            elif type == 'core switch':
-                new_type = 'cs_' + str(id)
+        #     if type == 'server':
+        #         continue
+        #         # new_type = 'host_' + str(id)
+        #     elif type == 'edge switch':
+        #         new_type = 'es_' + str(id)
+        #     elif type == 'aggregate switch':
+        #         new_type = 'as_' + str(id)
+        #     elif type == 'core switch':
+        #         new_type = 'cs_' + str(id)
 
-            shortest_path_mininet.append(new_type)
+            # shortest_path_mininet.append(new_type)
 
         # print(f'Mininet_shortest_path = {shortest_path_mininet}\n')
         

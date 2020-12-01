@@ -92,6 +92,7 @@ class FattreeNet(Topo):
                 Switches.append(self.addSwitch("as_" + str(switch.id), dpid=str(switch.id)))
             elif switch.type == 'core switch':
                 Switches.append(self.addSwitch("cs_" + str(switch.id), dpid=str(switch.id)))
+                
         pod_num = 0
         i = 0
         j = 2
