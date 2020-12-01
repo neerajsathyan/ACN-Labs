@@ -269,6 +269,7 @@ class Fattree:
         self.core_switch_starting_id = 0
         self.core_switch_ending_id = 0
         self.generate(num_ports)
+        self.mac_to_id = {}
 
     def generate(self, num_ports):
         if num_ports <= 1:
@@ -303,7 +304,9 @@ class Fattree:
             if k == int(num_ports / 2):
                 k = 0
                 pod_num = pod_num + 1
-            self.servers.append(Node('p%d_s%d_h%d' % (pod_num, k, j), 'server'))
+            #self.servers.append(Node('p%d_s%d_h%d' % (pod_num, k, j), 'server'))
+            self.servers.append(Node(str(i), 'server'))
+            self.mac_to_id[location_to_mac(pod_num, k, j)] = str(i)
             print('p%d_s%d_h%d' % (pod_num, k, j))
             j = j + 1
 
