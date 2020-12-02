@@ -268,8 +268,9 @@ class Fattree:
         self.agg_switch_ending_id = 0
         self.core_switch_starting_id = 0
         self.core_switch_ending_id = 0
-        self.generate(num_ports)
         self.mac_to_id = {}
+        self.generate(num_ports)
+
 
     def generate(self, num_ports):
         if num_ports <= 1:
