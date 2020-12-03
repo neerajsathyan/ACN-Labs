@@ -255,6 +255,7 @@ class Fattree:
         self.num_ports = num_ports
         self.servers = []
         self.switches = []
+        self.mac_to_id = {}
         # optional report of the network configuration
         # Store ids
         self.core_switch_list = []
@@ -268,8 +269,9 @@ class Fattree:
         self.agg_switch_ending_id = 0
         self.core_switch_starting_id = 0
         self.core_switch_ending_id = 0
+        
         self.generate(num_ports)
-        self.mac_to_id = {}
+        
 
     def generate(self, num_ports):
         if num_ports <= 1:
@@ -305,28 +307,37 @@ class Fattree:
                 k = 0
                 pod_num = pod_num + 1
             # self.servers.append(Node('p%d_s%d_h%d' % (pod_num, k, j), 'server'))
+
             self.servers.append(Node(f'h{i}', 'server'))
+            # self.mac_to_id[location_to_mac(pod_num, k, j)] = str(i)
+            self.mac_to_id[location_to_mac(pod_num, k, j)] = str(i)
             # print('p%d_s%d_h%d' % (pod_num, k, j))
 
             j = j + 1
 
+        
+
         # Create edge switches..
         self.edge_switch_starting_id = 0
+
+        # start_id = 0
+        start_id = 20
+
         self.edge_switch_ending_id = self.edge_switch_starting_id + (edge_switch_count - 1)
         for i in range(edge_switch_count):
-            self.switches.append(Node(i + self.edge_switch_starting_id, 'edge switch'))
+            self.switches.append(Node(start_id + i + self.edge_switch_starting_id, 'edge switch'))
 
         # Create Aggregate switches..
         self.agg_switch_starting_id = self.edge_switch_ending_id + 1
         self.agg_switch_ending_id = self.agg_switch_starting_id + (agg_switch_count - 1)
         for i in range(agg_switch_count):
-            self.switches.append(Node(i + self.agg_switch_starting_id, 'aggregate switch'))
+            self.switches.append(Node(start_id + i + self.agg_switch_starting_id, 'aggregate switch'))
 
         # Create Core switches..
         self.core_switch_starting_id = self.agg_switch_ending_id + 1
         self.core_switch_ending_id = self.core_switch_starting_id + (core_switch_count - 1)
         for i in range(core_switch_count):
-            self.switches.append(Node(i + self.core_switch_starting_id, 'core switch'))
+            self.switches.append(Node(start_id + i + self.core_switch_starting_id, 'core switch'))
 
         # Create Edges Between Servers and Edge Switches..
         server_id = 0

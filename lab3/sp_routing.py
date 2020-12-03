@@ -42,12 +42,6 @@ import topo
 import dijkstra
 from collections import defaultdict
 
-
-
-# def mac_to_server_id(mac_addr):
-
-
-
 #     return server_id
 
 def default_dict():
@@ -67,6 +61,7 @@ class SPRouter(app_manager.RyuApp):
 
         self.shortest_path_dict = default_dict()
 
+
         
         # calculate shortest paths between all server pairs
         self.servers = self.topo_net.servers
@@ -74,6 +69,7 @@ class SPRouter(app_manager.RyuApp):
 
         self.dijkstra_table, self.n_servers = dijkstra.dijkstra_shortest_path(self.servers, self.switches)
 
+        # print(self.dijkstra_table)
 
     # Topology discovery
     @set_ev_cls(event.EventSwitchEnter)
@@ -83,6 +79,14 @@ class SPRouter(app_manager.RyuApp):
         # Switches and links in the network
         switch_list = get_switch(self, None)
         link_list = get_link(self, None)
+
+        # for switch in switch_list:
+            # print(dir(switch))
+            # print(dir(switch.dp))
+
+        print(f'self.topo_net.mac_to_id.keys(): {self.topo_net.mac_to_id.keys()}')
+        print(f'self.topo_net.mac_to_id.values(): {self.topo_net.mac_to_id.values()}\n\n\n\n')
+
 
         # for s in link_list:
 
@@ -103,21 +107,52 @@ class SPRouter(app_manager.RyuApp):
         # OBTAIN THE USEFUL INFORMATION FROM GET_SWITCH AND GET_LINK
 
         # get list of dpid's of all switches
-        self.switch_dpids = [switch.dp.id for switch in switch_list]
-        # print(self.switch_dpids)
+        # self.switch_dpids = [switch.dp.id for switch in switch_list if len(str(switch.dp.id)) < 5]
+        # print(len(self.switch_dpids))
+        # print(f'\n\nSwitch dpids: \n{self.switch_dpids}')
+        # for 
 
-        self.switch_name_to_dpid = {str(link.src.name).split("-")[0][2:] : link.src.dpid for link in link_list} 
+        #################### MININET NAME TO DPID #########################
+        self.switch_name_to_dpid = {str(link.src.name).split("-")[0][2:] : link.src.dpid for link in link_list}
+        # print(f'\n\n\n\nswitch_name_to_dpid: {self.switch_name_to_dpid}, {len(self.switch_name_to_dpid)}')
+        
+
+        #################### HARDCODED NAME TO DPID #########################
+        # switch_names = [str(link.src.name).split("-")[0][2:] for link in link_list]
+        # self.switch_name_to_dpid = {switch_name : int(switch_name[3:]) for switch_name in switch_names}
+
         # print(self.switch_name_to_dpid)
+        # for switch_name in switch_names:
+            
+        #     switch_id = int(switch_name[3:])
 
+        
+        # for link in link_list:
+        #     dst_name = str(link.dst.name).split("-")[0][2:]
+
+        #     self.switch_name_to_dpid[dst_name] = link.dst.dpid
+
+        # print(f'switch_name_to_dpid: {self.switch_name_to_dpid}, {len(self.switch_name_to_dpid)}')
 
 
         # link dictionary {src_dpid : {dst_dpid : {src_port_to_dst}}}
-        self.switch_dpid_links = {link.src.dpid : {link.dst.dpid : {link.src.port_no}} for link in link_list}
+        self.switch_dpid_links = {link.src.dpid : {link.dst.dpid : link.src.port_no} for link in link_list}
+        # print(f'\n\n\n\nswitch_dpid_links: {self.switch_dpid_links} \nlen = {len(self.switch_dpid_links)}\n\n\n\n')
+        # for link in link_list:
+
+        #     dst_dpid = link.dst.dpid
+        #     src_dpid = link.src.dpid
+        #     dst_port_no = link.dst.port_no
+
+        #     self.switch_dpid_links[dst_dpid][src_dpid] = dst_port_no
+            
+        # print(f'switch_name_to_dpid: {self.switch_dpid_links} \nlen =  {len(self.switch_dpid_links)}\n\n\n\n')
+        
+            # self.switch_name_to_dpid[dst_name] = link.dst.dpid
         # print("Dpid_links: \n", self.switch_dpid_links)
 
         self.dpid_to_hw_addr = {link.src.dpid : link.src.hw_addr for link in link_list}
         # print("Hw_addr_links: \n", self.dpid_to_hw_addr)
-        
 
 
         #################################################################
@@ -178,48 +213,151 @@ class SPRouter(app_manager.RyuApp):
         # src, dst = '000000001', '000000014'
         #################################################################
         # print(src, dst)
+        # src_server = int(self.topo_net.mac_to_id[src])
+        # dst_server = int(self.topo_net.mac_to_id[dst])
 
-        # calculate shortest path between src and dst if unknown
-        if not (src, dst) in self.shortest_path_dict.keys():
-            
-            shortest_path = self.calculate_shortest_path(src, dst)
-
-            # save shortest path for src and dst
-            self.shortest_path_dict[(src, dst)] = shortest_path
-
-            # print(f'\n\nDpid shortest path = {self.shortest_path_dict[(src, dst)]}\n')
-
-            hw_addr_shortest_path = [self.dpid_to_hw_addr[int(dpid)] for dpid in self.shortest_path_dict[(src, dst)][1:-1] if int(dpid) in self.dpid_to_hw_addr]
-            hw_addr_shortest_path.insert(0, src)
-            hw_addr_shortest_path.insert(len(self.shortest_path_dict[(src, dst)]) + 1, dst)
-
-            # print(f'Hw_addr_shortest_path = {hw_addr_shortest_path}\n')
-
-        # current dpid
-        dpid = datapath.id
-
-        self.mac_to_port.setdefault(dpid, {})
-
-        # self.logger.info("\tpacket in %s %s %s %s", dpid, src, dst, in_port)
-
-        # learn a mac address to avoid FLOOD next time.
-        self.mac_to_port[dpid][src] = in_port
-
-        if dst in self.mac_to_port[dpid]:
-
-            # determine next dpid hop for current dpid
-            next_dpid = self.shortest_path_dict[(src, dst)][dpid]
-
-            # translate next dpid to a hw_addr
-            next_dst = self.dpid_to_hw_addr[int(next_dpid)]
-
-            # set next hw_addr as out_port
-            out_port = self.mac_to_port[dpid][next_dst]
-            print(out_port)
-
+        # destination is next hop
+        if dpid in self.mac_to_port and dst in self.mac_to_port[dpid]:
+            out_port = self.mac_to_port[dpid][dst]
 
         else:
-            out_port = ofproto.OFPP_FLOOD
+
+            # calculate shortest path between src and dst if unknown
+            if not self.shortest_path_dict[(src, dst)]:
+                # print(f'src, dst: {src} {dst}')
+
+                # print('yes')
+
+
+                #####################################
+                # ARP REQUEST
+                ###########################################
+
+                # see if source and destination are servers
+                if src in self.topo_net.mac_to_id.keys() and dst in self.topo_net.mac_to_id.keys():
+                    
+                    # print('yes2')
+
+                    # print(f'src_mac, src_server: {src}, {self.topo_net.mac_to_id[src]}')
+                    # print(f'dst_mac, dst_server: {dst}, {self.topo_net.mac_to_id[dst]}')
+                
+                    shortest_path = self.calculate_shortest_path(src, dst)
+
+                    # save shortest path for src and dst
+                    self.shortest_path_dict[(src, dst)] = shortest_path
+
+                    # print(f'\n\n\n{shortest_path}\n')
+
+                    src_server = int(self.topo_net.mac_to_id[src])
+                    dst_server = int(self.topo_net.mac_to_id[dst])
+
+                    print(f'src_server, dst_server: {src_server}, {dst_server}')
+
+                    print(f'\n\nDpid shortest path = {self.shortest_path_dict[(src, dst)]}\n')
+
+                    # hw_addr_shortest_path = [self.dpid_to_hw_addr[int(dpid)] for dpid in self.shortest_path_dict[(src, dst)][1:-1] if int(dpid) in self.dpid_to_hw_addr]
+                    # hw_addr_shortest_path.insert(0, src)
+                    # hw_addr_shortest_path.insert(len(self.shortest_path_dict[(src, dst)]) + 1, dst)
+
+                    # print(f'Hw_addr_shortest_path = {hw_addr_shortest_path}\n')
+
+                # else: 
+                #     return
+
+            
+
+            # current dpid
+            dpid = datapath.id
+            # print(dpid)
+
+            self.mac_to_port.setdefault(dpid, {})
+
+            # self.logger.info("\tpacket in %s %s %s %s", dpid, src, dst, in_port)
+
+            # learn a mac address to avoid FLOOD next time.
+            self.mac_to_port[dpid][src] = in_port
+
+            port_no = None
+
+            next_dst = None
+            next_dpid = None
+
+            # determine next dpid hop for current dpid
+            print(f'\n\nDpid shortest path = {self.shortest_path_dict[(src, dst)]}')
+
+            if self.shortest_path_dict[(src, dst)]:
+
+                print(f'Shorest path: {self.shortest_path_dict[(src, dst)]}')
+                print(f'dpid: {dpid}')
+                if dpid in self.shortest_path_dict[(src, dst)]:
+                    print(f'Current index: {self.shortest_path_dict[(src, dst)].index(dpid)}')
+
+                    next_hop_index = self.shortest_path_dict[(src, dst)].index(dpid) + 1
+
+                    if next_hop_index == len(self.shortest_path_dict[(src, dst)]) - 1:
+
+                        next_dpid = self.shortest_path_dict[(src, dst)][next_hop_index]
+
+                        for mac, id in self.topo_net.mac_to_id.items():
+                            
+                            if int(id) == next_dpid:
+                                next_dst = mac
+                                continue
+
+                        print(f'Current dpid: {int(dpid)}')
+                        print(f'Next_dpid: {next_dpid}')
+
+                        print(f'Next_dst: {next_dst}')
+                        # self.mac_to_port[dpid][next_dst] = 
+
+                    else:
+                        print(f'\n\n\n\nShortest path: {self.shortest_path_dict[(src, dst)]}')
+                        print(f'Next hop index: {next_hop_index}')
+
+                        next_dpid = self.shortest_path_dict[(src, dst)][next_hop_index]
+                        print(f'next dpid: {next_dpid}')
+
+                        # translate next dpid to a hw_addr
+                        next_dst = self.dpid_to_hw_addr[int(next_dpid)]
+
+                        
+                        print(f'Current dpid: {int(dpid)}')
+                        print(f'Next dpid: {int(next_dpid)}')
+                        print(f'Current mac: {self.dpid_to_hw_addr[int(dpid)]}')
+                        print(f'Next mac: {self.dpid_to_hw_addr[int(next_dpid)]}\n')
+
+                        print(f'mac_to_port.keys(): {self.mac_to_port.keys()}\n')
+                        print(f'mac_to_port[{dpid}].keys(): {self.mac_to_port[dpid].keys()}\n')
+                        print(f'mac_to_port[{dpid}].values(): {self.mac_to_port[dpid].values()}\n\n\n\n')
+
+                        try:
+                            port_no = self.switch_dpid_links[dpid][next_dpid]
+                        except:
+                            pass
+                        print(f'port_no: {port_no}')
+
+
+                print(f'self.mac_to_port[dpid]: {self.mac_to_port[dpid].keys()}')
+                print(f'next_dst: {next_dst}')
+                if next_dst in self.mac_to_port[dpid].keys():
+
+                    if port_no:
+                        out_port = port_no
+                    else:
+                        # set next hw_addr as out_port
+                        out_port = self.mac_to_port[dpid][next_dst]
+                        print(f'out_port: {out_port}')
+
+                else:
+                    print('Flood_1')
+                    out_port = ofproto.OFPP_FLOOD
+                
+
+
+            else:
+                print('Flood_2')
+                out_port = ofproto.OFPP_FLOOD
+
 
 
         actions = [parser.OFPActionOutput(out_port)]
@@ -248,45 +386,72 @@ class SPRouter(app_manager.RyuApp):
 
     def calculate_shortest_path(self, src_mac, dst_mac):
 
-        # print(f'\nsrc_mac, dst_mac = {src_mac}, {dst_mac}')
-        print('src_mac, dst_mac = ',src_mac, dst_mac)
-        src_server, dst_server = int(src_mac.replace('0', '').replace(':', '')), int(dst_mac.replace('0', '').replace(':', ''))
-        # print(f'src_server, dst_server = {src_server}, {dst_server}\n')
+        # if they are, calculate shortest path between the two
+        src_server = int(self.topo_net.mac_to_id[src_mac])
+        dst_server = int(self.topo_net.mac_to_id[dst_mac])
+
+        # src_server, dst_server = 1, 14
         
 
+        # print(f'\nsrc_mac, dst_mac = {src_mac}, {dst_mac}')
+        # print('\n\n\n\nsrc_server, dst_server = ',src_server, dst_server)
+
+    
+        # print(src_server, dst_server)
+
+        # src_server, dst_server = int(src_mac.replace('0', '').replace(':', '')), int(dst_mac.replace('0', '').replace(':', ''))
+        # print(f'src_server, dst_server = {src_server}, {dst_server}\n')
+        
+        # print(f'')
+        # print(f'\nDijkstra')
+        # for start_id in self.dijkstra_table:
+        #     for end_id in self.dijkstra_table[start_id]:
+        #         for type in self.dijkstra_table[start_id][end_id]:
+
+                    
+        #             print(f'{start_id} : {end_id} : {type}')
+        #             continue
+
+        #         continue
+        #     continue
+
+        # print(f"\nDict for {src_server}, {dst_server} {self.dijkstra_table[src_server][dst_server].keys()}\n\n")
+
         shortest_path_switches = dijkstra.shortest_path_list(self.dijkstra_table, src_server, dst_server, self.n_servers)
-        print(f'Shortest_path = {shortest_path_switches}\n')
+        # print(f'\n\n\n\nShortest_path = {shortest_path_switches}\n')
+        # print(path for path in shortest_path_switches)
 
         shortest_path_mininet = []
 
-        # for (type, id) in shortest_path_switches:
+        for (type, id) in shortest_path_switches:
+            # print(f'type, id = {type}, {id}')
 
-        #     if type == 'server':
-        #         continue
-        #         # new_type = 'host_' + str(id)
-        #     elif type == 'edge switch':
-        #         new_type = 'es_' + str(id)
-        #     elif type == 'aggregate switch':
-        #         new_type = 'as_' + str(id)
-        #     elif type == 'core switch':
-        #         new_type = 'cs_' + str(id)
+            if type == 'server':
+                continue
+                # new_type = 'host_' + str(id)
+            elif type == 'edge switch':
+                new_type = 'es_' + str(id)
+            elif type == 'aggregate switch':
+                new_type = 'as_' + str(id)
+            elif type == 'core switch':
+                new_type = 'cs_' + str(id)
 
-            # shortest_path_mininet.append(new_type)
+            shortest_path_mininet.append(new_type)
 
         # print(f'Mininet_shortest_path = {shortest_path_mininet}\n')
         
         dpid_shortest_path = [self.switch_name_to_dpid[name] for name in shortest_path_mininet if name in self.switch_name_to_dpid]
-        dpid_shortest_path.insert(0, src_mac)
-        dpid_shortest_path.insert(len(dpid_shortest_path), dst_mac)
+        # dpid_shortest_path.insert(0, src_server)
+        dpid_shortest_path.insert(len(dpid_shortest_path), dst_server)
 
         # print(f'Dpid_shortest_path = {dpid_shortest_path}\n')
 
 
-        # hw_addr_shortest_path = [self.dpid_to_hw_addr[int(dpid)] for dpid in dpid_shortest_path if int(dpid) in self.dpid_to_hw_addr]
-        # hw_addr_shortest_path.insert(0, src_mac)
-        # hw_addr_shortest_path.insert(len(dpid_shortest_path), dst_mac)
+        hw_addr_shortest_path = [self.dpid_to_hw_addr[int(dpid)] for dpid in dpid_shortest_path if int(dpid) in self.dpid_to_hw_addr]
+        hw_addr_shortest_path.insert(0, src_mac)
+        hw_addr_shortest_path.insert(len(dpid_shortest_path) + 1, dst_mac)
 
-        # print(f'Hw_addr_shortest_path = {hw_addr_shortest_path}\n')
+        # print(f'Hw_addr_shortest_path = {hw_addr_shortest_path}\n\n\n\n\n\n')
 
     
         return dpid_shortest_path
