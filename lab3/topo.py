@@ -255,7 +255,6 @@ class Fattree:
         self.num_ports = num_ports
         self.servers = []
         self.switches = []
-        self.mac_to_id = {}
         # optional report of the network configuration
         # Store ids
         self.core_switch_list = []
@@ -269,9 +268,9 @@ class Fattree:
         self.agg_switch_ending_id = 0
         self.core_switch_starting_id = 0
         self.core_switch_ending_id = 0
-        
+        self.mac_to_id = {}
         self.generate(num_ports)
-        
+
 
     def generate(self, num_ports):
         if num_ports <= 1:
