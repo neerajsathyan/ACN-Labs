@@ -151,14 +151,12 @@ def shortest_path_list(dijkstra_table, start_id, end_id, n_servers):
 
 
 	if int(start_id) >= n_servers or int(end_id) >= n_servers:
-		print('returns NONE!!!!!!!!')
 		return None
 
 
 	reversed_path = True
 
 	if start_id > end_id:
-		print('reverse_path')
 		reversed_path = False
 		start_id, end_id = end_id, start_id
 		switched_start_end_id = True
@@ -188,7 +186,7 @@ def shortest_path_list(dijkstra_table, start_id, end_id, n_servers):
 
 			if new_prev_id == None or new_prev_type == None:
 				
-				print(f'\n\nFails at break!!!!!!\n\n')
+				# print(f'\n\nFails at break!!!!!!\n\n')
 				break
 
 			shortest_path.append((prev_type, prev_id))
@@ -200,7 +198,7 @@ def shortest_path_list(dijkstra_table, start_id, end_id, n_servers):
 			new_prev_id = dijkstra_table[start_id][prev_id][prev_type]['prev']['id']
 			new_prev_type = dijkstra_table[start_id][prev_id][prev_type]['prev']['type']
 
-			print(f'\n\nFails at except!!!!!!\n\n')
+			# print(f'\n\nFails at except!!!!!!\n\n')
 			break
 
 	shortest_path.append((prev_type, prev_id))
