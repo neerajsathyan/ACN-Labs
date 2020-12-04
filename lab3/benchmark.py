@@ -87,12 +87,15 @@ class FattreeNet(Topo):
         # create switches..
         for switch in ft_topo.switches:
             if switch.type == 'edge switch':
+                # print(f'edge switch: {switch.id}')
                 Switches.append(self.addSwitch("es_" + str(switch.id), dpid=str(switch.id)))
             
             elif switch.type == 'aggregate switch':
+                # print(f'aggregate switch: {switch.id}')
                 Switches.append(self.addSwitch("as_" + str(switch.id), dpid=str(switch.id)))
             
             elif switch.type == 'core switch':
+                # print(f'core switch: {switch.id}')
                 Switches.append(self.addSwitch("cs_" + str(switch.id), dpid=str(switch.id)))
                 
         # print(f'\n\n\nSwitches: \n{Switches}\n\n\n')
@@ -147,8 +150,77 @@ def run(graph_topo):
 
     info('*** Starting network ***\n')
     net.start()
-    info('*** Running CLI ***\n')
-    CLI(net)        
+    
+    ping = input('Benchmark ping? (y/n): ')
+    # iperf = input('Benchmark iperf? (y/n): ')
+
+    if ping == 'y':
+        ping_mins = []
+        ping_averages = []
+        ping_maxs = []
+        ping_mdevs = []
+
+        for i in range(len(net.hosts)):
+        # for i in range(2):
+            for j in range(len(net.hosts[i:])):
+            # for j in range(len(net.hosts)):
+            # for j in range(2):
+                if i == i + j:
+                # if i == j:
+                    continue
+                else:
+                    # results = net.hosts[i].cmd('ping -c 20 %s' % net.hosts[j].IP())
+                    results = net.hosts[i].cmd('ping -c 20 %s' % net.hosts[i+j].IP())
+                    
+                    # find index in result string where 'min' and 'ms' are first named
+                    avg_index = results.index('min')
+                    ms_index = results[avg_index:].index('ms')
+
+                    # cut result string to only contain info between these words
+                    result_string = results[avg_index: avg_index + ms_index]
+
+                    # numbers we are interested in come after the '=' 
+                    numbers = result_string[result_string.index('=') + 2:]
+
+                    # extract MIN, AVG, MAX, MDEV as floats from string
+                    MIN, AVG, MAX, MDEV = numbers.split('/')
+                    MIN, AVG, MAX, MDEV = float(MIN), float(AVG), float(MAX), float(MDEV)
+
+                    
+                    print(f'h{i} ping -c 20 h{j}')
+                    print(f'MIN, AVG, MAX, MDEV = ', MIN, AVG, MAX, MDEV)
+
+                    ping_mins.append(MIN)
+                    ping_averages.append(AVG)
+                    ping_maxs.append(MAX)
+                    ping_mdevs.append(MDEV)
+
+    
+
+
+
+        # save results to a .txt file in the 'benchmarks' folder
+        with open('benchmarks/ping_results.txt', 'w') as fout:
+            fout.write(f'MINs = {str(ping_mins)}\n\nAVGs = {str(ping_averages)}\n\nMAXs = {str(ping_maxs)}\n\nMDEVs = {str(ping_mdevs)}')
+
+
+    # if iperf == 'y':
+    #     for i in range(len(net.hosts)):
+    #     # for i in range(2):
+    #         for j in range(len(net.hosts[i:])):
+    #         # for j in range(len(net.hosts)):
+    #         # for j in range(2):
+    #             print(i, j)
+    #             if i == i + j:
+    #             # if i == j:
+    #                 continue
+    #             else:
+    #                 results = net.cmd(f'iperf {net.hosts[i]} {net.hosts[i+j].IP()}')
+    #                 print(results)
+    
+
+    # info('*** Running CLI ***\n')
+    # CLI(net)
     info('*** Stopping network ***\n')
     net.stop()
 

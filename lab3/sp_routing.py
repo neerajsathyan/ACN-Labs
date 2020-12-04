@@ -77,7 +77,7 @@ class SPRouter(app_manager.RyuApp):
         switch_list = get_switch(self, None)
         link_list = get_link(self, None)
 
-        # for each src name, calculate its corresponding dpid
+        # for each src name, calculate its corresponding src dpid
         self.switch_name_to_dpid = {str(link.src.name).split("-")[0][2:] : link.src.dpid for link in link_list}
 
         # for each (src, dst) switch pair, determine port_no (without overwriting dict!!!!)
@@ -203,7 +203,7 @@ class SPRouter(app_manager.RyuApp):
         if out_port != ofproto.OFPP_FLOOD:
             # self.logger.info("install flow_mode:%s -> %s", in_port, out_port)
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
-            self.add_flow(datapath, 1, match, actions)
+            self.add_flow(datapath, priority, match, actions)
 
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
@@ -220,35 +220,34 @@ class SPRouter(app_manager.RyuApp):
 
     def calculate_shortest_path(self, src_mac, dst_mac):
 
-        # if they are, calculate shortest path between the two
-        src_server = int(self.topo_net.mac_to_id[src_mac])
-        dst_server = int(self.topo_net.mac_to_id[dst_mac])
+        # translate src_mac and dst_mac to a server id, by leveraging topo structure
+        src_server_id = int(self.topo_net.mac_to_id[src_mac])
+        dst_server_id = int(self.topo_net.mac_to_id[dst_mac])
 
         # calculate shortest path with Dijkstra's algorithm (lab2)
-        shortest_path_switches = dijkstra.shortest_path_list(self.dijkstra_table, src_server, dst_server, self.n_servers)
+        shortest_path_switches = dijkstra.shortest_path_list(self.dijkstra_table, src_server_id, dst_server_id, self.n_servers)
 
-        # express in mininet equivalent shortest path
-        shortest_path_mininet = []
+        # express shortest path in dpid's
+        dpid_shortest_path = []
         for (type, id) in shortest_path_switches:
-            
             if type == 'server':
                 continue
             elif type == 'edge switch':
-                new_type = 'es_' + str(id)
+                name = 'es_' + str(id)
             elif type == 'aggregate switch':
-                new_type = 'as_' + str(id)
+                name = 'as_' + str(id)
             elif type == 'core switch':
-                new_type = 'cs_' + str(id)
+                name = 'cs_' + str(id)
+                
+            # determine dpid for each switch in shortest path
+            dpid = self.switch_name_to_dpid[name]
 
-            shortest_path_mininet.append(new_type)
+            # append destination server to shortest path
+            dpid_shortest_path.append(dpid)
 
-
-        # shortest path in dpid's of mininet switches
-        dpid_shortest_path = [self.switch_name_to_dpid[name] for name in shortest_path_mininet if name in self.switch_name_to_dpid]
-
-        # append destination server to shortest path
-        dpid_shortest_path.insert(len(dpid_shortest_path), dst_server)
-
+        # insert dst_server_id at end of path        
+        dpid_shortest_path.insert(len(dpid_shortest_path), dst_server_id)
+    
         return dpid_shortest_path
 
 
@@ -285,13 +284,11 @@ class SPRouter(app_manager.RyuApp):
 
         # Try to reply arp request
         if arp_pkt:
+            
             if arp_pkt.opcode == arp.ARP_REQUEST:
-                hwtype = arp_pkt.hwtype
-                proto = arp_pkt.proto
-                hlen = arp_pkt.hlen
-                plen = arp_pkt.plen
                 arp_src_ip = arp_pkt.src_ip
                 arp_dst_ip = arp_pkt.dst_ip
+
                 if arp_dst_ip in self.arp_table:
                     actions = [parser.OFPActionOutput(in_port)]
                     ARP_Reply = packet.Packet()
