@@ -9,7 +9,8 @@ def dijkstra_shortest_path(servers, switches, report=False):
 	all_servers = [server for server in servers if len(server.edges) > 0]
 	switches = [switch for switch in switches if len(switch.edges) > 0]
 
-	possible_server_pairs = int(len(all_servers)/2)
+	# possible_server_pairs = int(len(all_servers)/2)
+	possible_server_pairs = int(len(all_servers))
 
 	dijksta_table = default_dict()
 

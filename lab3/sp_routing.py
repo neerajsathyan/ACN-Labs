@@ -26,7 +26,9 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib.mac import haddr_to_bin
 from ryu.lib.packet import packet
 from ryu.lib.packet import ipv4
+from ryu.lib.packet import ipv6
 from ryu.lib.packet import arp
+from ryu.lib import mac
 
 
 ###################################
@@ -42,7 +44,9 @@ import topo
 import dijkstra
 from collections import defaultdict
 
-#     return server_id
+ETHERNET = ethernet.ethernet.__name__
+ETHERNET_MULTICAST = "ff:ff:ff:ff:ff:ff"
+ARP = arp.arp.__name__
 
 def default_dict():
 	return defaultdict(default_dict)
@@ -58,6 +62,11 @@ class SPRouter(app_manager.RyuApp):
 
         # Used for learning switch functioning
         self.mac_to_port = {}
+
+        # arp table
+        self.arp_table = {}
+
+        self.sw = {}
 
         self.shortest_path_dict = default_dict()
 
@@ -84,8 +93,8 @@ class SPRouter(app_manager.RyuApp):
             # print(dir(switch))
             # print(dir(switch.dp))
 
-        print(f'self.topo_net.mac_to_id.keys(): {self.topo_net.mac_to_id.keys()}')
-        print(f'self.topo_net.mac_to_id.values(): {self.topo_net.mac_to_id.values()}\n\n\n\n')
+        # print(f'self.topo_net.mac_to_id.keys(): {self.topo_net.mac_to_id.keys()}')
+        # print(f'self.topo_net.mac_to_id.values(): {self.topo_net.mac_to_id.values()}\n\n\n\n')
 
 
         # for s in link_list:
@@ -114,6 +123,7 @@ class SPRouter(app_manager.RyuApp):
 
         #################### MININET NAME TO DPID #########################
         self.switch_name_to_dpid = {str(link.src.name).split("-")[0][2:] : link.src.dpid for link in link_list}
+        # print(self.switch_name_to_dpid)
         # print(f'\n\n\n\nswitch_name_to_dpid: {self.switch_name_to_dpid}, {len(self.switch_name_to_dpid)}')
         
 
@@ -136,8 +146,31 @@ class SPRouter(app_manager.RyuApp):
 
 
         # link dictionary {src_dpid : {dst_dpid : {src_port_to_dst}}}
-        self.switch_dpid_links = {link.src.dpid : {link.dst.dpid : link.src.port_no} for link in link_list}
-        # print(f'\n\n\n\nswitch_dpid_links: {self.switch_dpid_links} \nlen = {len(self.switch_dpid_links)}\n\n\n\n')
+        # self.switch_dpid_links = {link.src.dpid : {link.dst.dpid : link.src.port_no} for link in link_list}
+        # print(len(link_list))
+        # self.switch_dpid_links = {}
+        # self.switch_dpid_links.setdefault({int : {int : {[]} }})
+        # print()
+        self.switch_dpid_links = {}
+        for link in link_list:
+            if not link.src.dpid in self.switch_dpid_links:
+                self.switch_dpid_links[link.src.dpid] = {link.dst.dpid : link.src.port_no}
+            else:
+                if not link.dst.dpid in self.switch_dpid_links[link.src.dpid]:
+                    self.switch_dpid_links[link.src.dpid][link.dst.dpid] = link.src.port_no
+               
+        # print(self.switch_dpid_links[32][41])
+                # else:
+                #     self.switch_dpid_links[link.src.dpid][link.dst.dpid].append(link.src.port_no)
+
+            # else:
+                # if not link.dst.dpid in self.switch_dpid_links[link.src.dpid]:
+            # self.switch_dpid_links[link.src.dpid].update({link.dst.dpid: link.src.port_no} )
+            # print(link.src.dpid, link.dst.dpid, link.src.port_no)
+            # self.switch_dpid_links[link.src.dpid][link.dst.dpid].extend(link.src.port_no)
+            
+
+        print(f'\n\n\n\nswitch_dpid_links: {self.switch_dpid_links} \nlen = {len(self.switch_dpid_links)}\n\n\n\n')
         # for link in link_list:
 
         #     dst_dpid = link.dst.dpid
@@ -151,7 +184,15 @@ class SPRouter(app_manager.RyuApp):
             # self.switch_name_to_dpid[dst_name] = link.dst.dpid
         # print("Dpid_links: \n", self.switch_dpid_links)
 
-        self.dpid_to_hw_addr = {link.src.dpid : link.src.hw_addr for link in link_list}
+        # self.dpid_to_hw_addr = {link.src.dpid : link.src.hw_addr for link in link_list}
+
+        self.dpid_to_hw_addr = {}
+        for link in link_list:
+            if not link.src.dpid in self.dpid_to_hw_addr:
+                self.dpid_to_hw_addr[link.src.dpid] = {link.dst.dpid : link.src.hw_addr}
+            else:
+                if not link.dst.dpid in self.dpid_to_hw_addr[link.src.dpid]:
+                    self.dpid_to_hw_addr[link.src.dpid][link.dst.dpid] = link.src.hw_addr
         # print("Hw_addr_links: \n", self.dpid_to_hw_addr)
 
 
@@ -204,6 +245,13 @@ class SPRouter(app_manager.RyuApp):
         # ignore lldp packet
         if pkt_eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
+
+        # Avoid IPV6 packet for now..
+        if pkt.get_protocol(ipv6.ipv6):
+            match = parser.OFPMatch(eth_type=pkt_eth.ethertype)
+            actions = []
+            self.add_flow(datapath, 1, match, actions)
+            return None
         
         dst = pkt_eth.dst
         src = pkt_eth.src
@@ -212,173 +260,173 @@ class SPRouter(app_manager.RyuApp):
         #################################################################
         # src, dst = '000000001', '000000014'
         #################################################################
-        # print(src, dst)
-        # src_server = int(self.topo_net.mac_to_id[src])
-        # dst_server = int(self.topo_net.mac_to_id[dst])
-
-        # destination is next hop
-        if dpid in self.mac_to_port and dst in self.mac_to_port[dpid]:
-            out_port = self.mac_to_port[dpid][dst]
-
-        else:
-
-            # calculate shortest path between src and dst if unknown
-            if not self.shortest_path_dict[(src, dst)]:
-                # print(f'src, dst: {src} {dst}')
-
-                # print('yes')
 
 
-                #####################################
-                # ARP REQUEST
-                ###########################################
+        arp_pkt = pkt.get_protocol(arp.arp)
 
-                # see if source and destination are servers
-                if src in self.topo_net.mac_to_id.keys() and dst in self.topo_net.mac_to_id.keys():
-                    
-                    # print('yes2')
+        if arp_pkt:
+            # print(dir(arp_pkt))
+            self.arp_table[arp_pkt.src_ip] = src
 
-                    # print(f'src_mac, src_server: {src}, {self.topo_net.mac_to_id[src]}')
-                    # print(f'dst_mac, dst_server: {dst}, {self.topo_net.mac_to_id[dst]}')
-                
-                    shortest_path = self.calculate_shortest_path(src, dst)
-
-                    # save shortest path for src and dst
-                    self.shortest_path_dict[(src, dst)] = shortest_path
-
-                    # print(f'\n\n\n{shortest_path}\n')
-
-                    src_server = int(self.topo_net.mac_to_id[src])
-                    dst_server = int(self.topo_net.mac_to_id[dst])
-
-                    print(f'src_server, dst_server: {src_server}, {dst_server}')
-
-                    print(f'\n\nDpid shortest path = {self.shortest_path_dict[(src, dst)]}\n')
-
-                    # hw_addr_shortest_path = [self.dpid_to_hw_addr[int(dpid)] for dpid in self.shortest_path_dict[(src, dst)][1:-1] if int(dpid) in self.dpid_to_hw_addr]
-                    # hw_addr_shortest_path.insert(0, src)
-                    # hw_addr_shortest_path.insert(len(self.shortest_path_dict[(src, dst)]) + 1, dst)
-
-                    # print(f'Hw_addr_shortest_path = {hw_addr_shortest_path}\n')
-
-                # else: 
-                #     return
+            # self.logger.info(" ARP: %s -> %s", arp_pkt.src_ip, arp_pkt.dst_ip)
+            if self.arp_handler(msg):
+                return None
 
             
+        
+        # no shortest path for arp requests
+        else:
+            # calculate shortest path between src and dst if it's not yet calculated
+            if not self.shortest_path_dict[(src, dst)]:
 
-            # current dpid
-            dpid = datapath.id
-            # print(dpid)
+                # # see if source and destination are servers
+                # if src in self.topo_net.mac_to_id.keys() and dst in self.topo_net.mac_to_id.keys():
 
-            self.mac_to_port.setdefault(dpid, {})
+                # calculate shortest path as a list
+                shortest_path = self.calculate_shortest_path(src, dst)
+                # shortest path becomes value of current (src, dst) pair
+                self.shortest_path_dict[(src, dst)] = shortest_path
 
-            # self.logger.info("\tpacket in %s %s %s %s", dpid, src, dst, in_port)
+        
+        self.mac_to_port.setdefault(dpid, {})
 
-            # learn a mac address to avoid FLOOD next time.
+        if not src in self.mac_to_port[dpid]:
+        
             self.mac_to_port[dpid][src] = in_port
 
-            port_no = None
+        # print(f'self.mac_to_port {self.mac_to_port}\n\n')
 
-            next_dst = None
-            next_dpid = None
 
-            # determine next dpid hop for current dpid
+        if arp_pkt and dst in self.mac_to_port[dpid]:
+            out_port = self.mac_to_port[dpid][dst]
+            # print('Flood_1')
+            # out_port = ofproto.OFPP_FLOOD
+
+            # out_port = None
+
+        
+        # else if we have the shortest path for the (src, dst) pair
+        elif self.shortest_path_dict[(src, dst)]:
+
+
             print(f'\n\nDpid shortest path = {self.shortest_path_dict[(src, dst)]}')
+            print(f'\n\nDpid shortest path[:-1] = {self.shortest_path_dict[(src, dst)][:-1]}')
+            print(f'dpid: {dpid}')
+            
+            # print(f'Current index: {self.shortest_path_dict[(src, dst)].index(dpid)}')
 
-            if self.shortest_path_dict[(src, dst)]:
+            next_hop_index = self.shortest_path_dict[(src, dst)].index(dpid) + 1
 
-                print(f'Shorest path: {self.shortest_path_dict[(src, dst)]}')
-                print(f'dpid: {dpid}')
-                if dpid in self.shortest_path_dict[(src, dst)]:
-                    print(f'Current index: {self.shortest_path_dict[(src, dst)].index(dpid)}')
+            if next_hop_index == len(self.shortest_path_dict[(src, dst)]) - 1:
+                # if dst in self.mac_to_port[dpid]:
+                # print(f'self.mac_to_port[dpid]: {self.mac_to_port[dpid]}')
+                # if dst in self.mac_to_port[dpid]:
 
-                    next_hop_index = self.shortest_path_dict[(src, dst)].index(dpid) + 1
+                # print(f'self.mac_to_port[dpid][dst]: {self.mac_to_port[dpid][dst]}')
 
-                    if next_hop_index == len(self.shortest_path_dict[(src, dst)]) - 1:
+                out_port = self.mac_to_port[dpid][dst]
 
-                        next_dpid = self.shortest_path_dict[(src, dst)][next_hop_index]
-
-                        for mac, id in self.topo_net.mac_to_id.items():
-                            
-                            if int(id) == next_dpid:
-                                next_dst = mac
-                                continue
-
-                        print(f'Current dpid: {int(dpid)}')
-                        print(f'Next_dpid: {next_dpid}')
-
-                        print(f'Next_dst: {next_dst}')
-                        # self.mac_to_port[dpid][next_dst] = 
-
-                    else:
-                        print(f'\n\n\n\nShortest path: {self.shortest_path_dict[(src, dst)]}')
-                        print(f'Next hop index: {next_hop_index}')
-
-                        next_dpid = self.shortest_path_dict[(src, dst)][next_hop_index]
-                        print(f'next dpid: {next_dpid}')
-
-                        # translate next dpid to a hw_addr
-                        next_dst = self.dpid_to_hw_addr[int(next_dpid)]
-
-                        
-                        print(f'Current dpid: {int(dpid)}')
-                        print(f'Next dpid: {int(next_dpid)}')
-                        print(f'Current mac: {self.dpid_to_hw_addr[int(dpid)]}')
-                        print(f'Next mac: {self.dpid_to_hw_addr[int(next_dpid)]}\n')
-
-                        print(f'mac_to_port.keys(): {self.mac_to_port.keys()}\n')
-                        print(f'mac_to_port[{dpid}].keys(): {self.mac_to_port[dpid].keys()}\n')
-                        print(f'mac_to_port[{dpid}].values(): {self.mac_to_port[dpid].values()}\n\n\n\n')
-
-                        try:
-                            port_no = self.switch_dpid_links[dpid][next_dpid]
-                        except:
-                            pass
-                        print(f'port_no: {port_no}')
+                next_dpid = self.shortest_path_dict[(src, dst)][next_hop_index]
 
 
-                print(f'self.mac_to_port[dpid]: {self.mac_to_port[dpid].keys()}')
-                print(f'next_dst: {next_dst}')
-                if next_dst in self.mac_to_port[dpid].keys():
+                # print(f'Current dpid: {int(dpid)}')
+                # print(f'Next_dpid: {next_dpid}')
+                # print(f'Next_dst: {dst}')
 
-                    if port_no:
-                        out_port = port_no
-                    else:
-                        # set next hw_addr as out_port
-                        out_port = self.mac_to_port[dpid][next_dst]
-                        print(f'out_port: {out_port}')
+            elif dpid in self.shortest_path_dict[(src, dst)][:-1]:
 
-                else:
-                    print('Flood_1')
-                    out_port = ofproto.OFPP_FLOOD
+                next_dpid = self.shortest_path_dict[(src, dst)][next_hop_index]
+                # print(f'next dpid: {next_dpid}')
+
+                # # translate next dpid to a hw_addr
+                # next_dst = self.dpid_to_hw_addr[int(next_dpid)]
+
                 
+                # print(f'Current dpid: {int(dpid)}')
+                # print(f'Next dpid: {int(next_dpid)}')
+                # print(f'Current mac: {self.dpid_to_hw_addr[int(dpid)]}')
+                # print(f'Next mac: {self.dpid_to_hw_addr[int(next_dpid)]}\n')
 
+                # print(f'mac_to_port.keys(): {self.mac_to_port.keys()}\n')
+                # print(f'mac_to_port[{dpid}].keys(): {self.mac_to_port[dpid].keys()}\n')
+                # print(f'mac_to_port[{dpid}].values(): {self.mac_to_port[dpid].values()}\n\n\n\n')
+
+                # # if dpid in self.switch_dpid_links and next_dpid in self.switch_dpid_links[dpid]:
+                out_port = self.switch_dpid_links[dpid][next_dpid]
+
+                # out_port = self.mac_to_port[dpid][next_dst]
 
             else:
-                print('Flood_2')
+                # print('Flood_2')
                 out_port = ofproto.OFPP_FLOOD
+                # return
+
+
+            # print(f'self.mac_to_port[dpid]: {self.mac_to_port[dpid].keys()}')
+            # print(f'next_dst: {next_dst}')
+            # if next_dst in self.mac_to_port[dpid].keys():
+
+            #     # set next hw_addr as out_port
+            #     out_port = self.mac_to_port[dpid][next_dst]
+
+            # else:
+            #     # print('Flood_1')
+            #     out_port = ofproto.OFPP_FLOOD
+            
+        # if not dpid in self.shortest_path_dict[(src, dst)]:
+
+        #     print('flood 1!')
+        #     out_port = ofproto.OFPP_FLOOD
+
+        else:
+            # print('Flood_3')
+            out_port = ofproto.OFPP_FLOOD
+
+
+        # print(f'port_out: {out_port}')
+        # actions = [parser.OFPActionOutput(out_port)]
+
+        # # install a flow to avoid packet_in next time
+        # if out_port != ofproto.OFPP_FLOOD:
+        #     match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
+        #     # verify if we have a valid buffer_id, if yes avoid to send both flow_mod & packet_out
+        #     if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+        #         self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+        #         return
+        #     else:
+        #         self.add_flow(datapath, 1, match, actions)
+
+        # data = None
+        
+        # if msg.buffer_id == ofproto.OFP_NO_BUFFER:
+        #     data = msg.data
+
+        # out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
+        #                           in_port=in_port, actions=actions, data=data)
+        # datapath.send_msg(out)
 
 
 
         actions = [parser.OFPActionOutput(out_port)]
 
+        priority = ofproto.OFP_DEFAULT_PRIORITY
+
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
-            # verify if we have a valid buffer_id, if yes avoid to send both flow_mod & packet_out
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                return
-            else:
-                self.add_flow(datapath, 1, match, actions)
+            # self.logger.info("install flow_mode:%s -> %s", in_port, out_port)
+            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+            self.add_flow(datapath, 1, match, actions)
 
         data = None
-        
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
 
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-                                  in_port=in_port, actions=actions, data=data)
+        # Construct packet_out message and send it
+        out = parser.OFPPacketOut(datapath=datapath,
+                                  in_port=in_port,
+                                  actions=actions,
+                                  buffer_id=msg.buffer_id,
+                                  data=data)
         datapath.send_msg(out)
 
         #################################################################
@@ -390,71 +438,106 @@ class SPRouter(app_manager.RyuApp):
         src_server = int(self.topo_net.mac_to_id[src_mac])
         dst_server = int(self.topo_net.mac_to_id[dst_mac])
 
-        # src_server, dst_server = 1, 14
-        
-
-        # print(f'\nsrc_mac, dst_mac = {src_mac}, {dst_mac}')
-        # print('\n\n\n\nsrc_server, dst_server = ',src_server, dst_server)
-
-    
-        # print(src_server, dst_server)
-
-        # src_server, dst_server = int(src_mac.replace('0', '').replace(':', '')), int(dst_mac.replace('0', '').replace(':', ''))
-        # print(f'src_server, dst_server = {src_server}, {dst_server}\n')
-        
-        # print(f'')
-        # print(f'\nDijkstra')
-        # for start_id in self.dijkstra_table:
-        #     for end_id in self.dijkstra_table[start_id]:
-        #         for type in self.dijkstra_table[start_id][end_id]:
-
-                    
-        #             print(f'{start_id} : {end_id} : {type}')
-        #             continue
-
-        #         continue
-        #     continue
-
-        # print(f"\nDict for {src_server}, {dst_server} {self.dijkstra_table[src_server][dst_server].keys()}\n\n")
-
+        # calculate shortest path with Dijkstra's algorithm (lab2)
         shortest_path_switches = dijkstra.shortest_path_list(self.dijkstra_table, src_server, dst_server, self.n_servers)
-        # print(f'\n\n\n\nShortest_path = {shortest_path_switches}\n')
-        # print(path for path in shortest_path_switches)
 
+        # express in mininet equivalent shortest path
         shortest_path_mininet = []
-
         for (type, id) in shortest_path_switches:
-            # print(f'type, id = {type}, {id}')
+            
 
             if type == 'server':
                 continue
-                # new_type = 'host_' + str(id)
             elif type == 'edge switch':
                 new_type = 'es_' + str(id)
             elif type == 'aggregate switch':
                 new_type = 'as_' + str(id)
             elif type == 'core switch':
                 new_type = 'cs_' + str(id)
+            try:
+                shortest_path_mininet.append(new_type)
+            except:
+                print(f'src_server, dst_server: {src_server}, {dst_server}')
+                print(f'type, id: {type, id}')
+                print(f'shortest_path_switches: {shortest_path_switches}')
+                shortest_path_mininet.append(new_type)
 
-            shortest_path_mininet.append(new_type)
 
-        # print(f'Mininet_shortest_path = {shortest_path_mininet}\n')
-        
+        # shortest path in dpid's of mininet switches
         dpid_shortest_path = [self.switch_name_to_dpid[name] for name in shortest_path_mininet if name in self.switch_name_to_dpid]
-        # dpid_shortest_path.insert(0, src_server)
+
+        # append destination server to shortest path
         dpid_shortest_path.insert(len(dpid_shortest_path), dst_server)
 
-        # print(f'Dpid_shortest_path = {dpid_shortest_path}\n')
-
-
-        hw_addr_shortest_path = [self.dpid_to_hw_addr[int(dpid)] for dpid in dpid_shortest_path if int(dpid) in self.dpid_to_hw_addr]
-        hw_addr_shortest_path.insert(0, src_mac)
-        hw_addr_shortest_path.insert(len(dpid_shortest_path) + 1, dst_mac)
-
-        # print(f'Hw_addr_shortest_path = {hw_addr_shortest_path}\n\n\n\n\n\n')
-
-    
         return dpid_shortest_path
+
+
+    def arp_handler(self, msg):
+        datapath = msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        in_port = msg.match['in_port']
+
+        pkt = packet.Packet(msg.data)
+        eth = pkt.get_protocols(ethernet.ethernet)[0]
+        arp_pkt = pkt.get_protocol(arp.arp)
+
+        if eth:
+            eth_dst = eth.dst
+            eth_src = eth.src
+
+        # Break the loop for avoiding ARP broadcast storm
+        if eth_dst == mac.BROADCAST_STR:  # and arp_pkt:
+            arp_dst_ip = arp_pkt.dst_ip
+            arp_src_ip = arp_pkt.src_ip
+
+            if (datapath.id, arp_src_ip, arp_dst_ip) in self.sw:
+                # packet come back at different port.
+                if self.sw[(datapath.id, arp_src_ip, arp_dst_ip)] != in_port:
+                    datapath.send_packet_out(in_port=in_port, actions=[])
+                    return True
+            else:
+                # self.sw.setdefault((datapath.id, eth_src, arp_dst_ip), None)
+                self.sw[(datapath.id, arp_src_ip, arp_dst_ip)] = in_port
+                # print(self.sw)
+                self.mac_to_port.setdefault(datapath.id, {})
+                self.mac_to_port[datapath.id][eth_src] = in_port
+
+        # Try to reply arp request
+        if arp_pkt:
+            if arp_pkt.opcode == arp.ARP_REQUEST:
+                hwtype = arp_pkt.hwtype
+                proto = arp_pkt.proto
+                hlen = arp_pkt.hlen
+                plen = arp_pkt.plen
+                arp_src_ip = arp_pkt.src_ip
+                arp_dst_ip = arp_pkt.dst_ip
+                if arp_dst_ip in self.arp_table:
+                    actions = [parser.OFPActionOutput(in_port)]
+                    ARP_Reply = packet.Packet()
+
+                    ARP_Reply.add_protocol(ethernet.ethernet(
+                        ethertype=eth.ethertype,
+                        dst=eth_src,
+                        src=self.arp_table[arp_dst_ip]))
+                    ARP_Reply.add_protocol(arp.arp(
+                        opcode=arp.ARP_REPLY,
+                        src_mac=self.arp_table[arp_dst_ip],
+                        src_ip=arp_dst_ip,
+                        dst_mac=eth_src,
+                        dst_ip=arp_src_ip))
+
+                    ARP_Reply.serialize()
+
+                    out = parser.OFPPacketOut(
+                        datapath=datapath,
+                        buffer_id=ofproto.OFP_NO_BUFFER,
+                        in_port=ofproto.OFPP_CONTROLLER,
+                        actions=actions, data=ARP_Reply.data)
+                    datapath.send_msg(out)
+                    print("ARP_Reply")
+                    return True
+        return False
 
 
 
