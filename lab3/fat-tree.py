@@ -87,14 +87,17 @@ class FattreeNet(Topo):
         # create switches..
         for switch in ft_topo.switches:
             if switch.type == 'edge switch':
+                print(f'edge switch: {switch.id}')
                 Switches.append(self.addSwitch("es_" + str(switch.id), dpid=str(switch.id)))
-            
+
             elif switch.type == 'aggregate switch':
+                print(f'aggregate switch: {switch.id}')
                 Switches.append(self.addSwitch("as_" + str(switch.id), dpid=str(switch.id)))
-            
+
             elif switch.type == 'core switch':
+                print(f'core switch: {switch.id}')
                 Switches.append(self.addSwitch("cs_" + str(switch.id), dpid=str(switch.id)))
-                
+
         # print(f'\n\n\nSwitches: \n{Switches}\n\n\n')
         # [print(switch) for switch in Switches]
 
@@ -148,7 +151,7 @@ def run(graph_topo):
     info('*** Starting network ***\n')
     net.start()
     info('*** Running CLI ***\n')
-    CLI(net)        
+    CLI(net)
     info('*** Stopping network ***\n')
     net.stop()
 
