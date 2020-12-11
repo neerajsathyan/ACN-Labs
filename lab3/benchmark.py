@@ -161,12 +161,8 @@ def run(graph_topo):
         ping_mdevs = []
 
         for i in range(len(net.hosts)):
-        # for i in range(2):
             for j in range(len(net.hosts[i:])):
-            # for j in range(len(net.hosts)):
-            # for j in range(2):
                 if i == i + j:
-                # if i == j:
                     continue
                 else:
                     # results = net.hosts[i].cmd('ping -c 20 %s' % net.hosts[j].IP())
@@ -194,10 +190,6 @@ def run(graph_topo):
                     ping_averages.append(AVG)
                     ping_maxs.append(MAX)
                     ping_mdevs.append(MDEV)
-
-    
-
-
 
         # save results to a .txt file in the 'benchmarks' folder
         with open('benchmarks/ping_results.txt', 'w') as fout:
