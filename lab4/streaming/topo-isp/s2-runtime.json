@@ -7,9 +7,8 @@
       "table": "MyIngress.ipv4_lpm",
       "default_action": true,
       "action_name": "MyIngress.drop",
-      "action_params": {}
+      "action_params": { }
     },
-
     {
       "table": "MyIngress.ipv4_lpm",
       "match": {
@@ -17,62 +16,65 @@
       },
       "action_name": "MyIngress.ipv4_forward",
       "action_params": {
-        "port": 1,
-        "dstAddr": "08:00:00:00:01:00"
+        "dstAddr": "08:00:00:00:01:00",
+        "port": 1
       }
     },
-
+    {
+      "table": "MyIngress.ipv4_lpm",
+      "match": {
+        "hdr.ipv4.dstAddr": ["10.0.3.3", 32]
+      },
+      "action_name": "MyIngress.ipv4_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:03:00",
+        "port": 3
+      }
+    },
     {
       "table": "MyIngress.ipv4_lpm",
       "match": {
         "hdr.ipv4.dstAddr": ["10.0.7.7", 32]
       },
-      "action_name": "MyIngress.ipv4_forward",
+      "action_name": "MyIngress.mcast_group",
       "action_params": {
+        "dstAddr": "08:00:00:00:05:00",
         "port": 2,
-        "dstAddr": "08:00:00:00:07:00"
-      },
-      "action_name": "MyIngress.assign_mcgID",
-      "action_params": {
-        "mcg": 1
+        "mcast_grp_id": 1
       }
     },
-
     {
-      "table": "MyEgress.nat_table",
+      "table": "MyEgress.NAT_match_action_table",
       "match": {
         "standard_metadata.egress_rid": 1,
         "standard_metadata.egress_port": 3
       },
-      "action_name": "MyEgress.ipv4_forward",
+      "action_name": "MyEgress.update_destination",
       "action_params": {
-        "dstAddr": "08:00:00:00:03:00"
-      },
-      "action_name": "MyEgress.set_new_dst",
-      "action_params": {
-        "dstAddr": "10.0.3.3"
+        "dstAddr_mac": "08:00:00:00:03:00",
+        "dstAddr_ip": "10.0.3.3"
       }
-    }
-    
-  ],
-
-
-
-  "multicast_group_entries" : [
+    },
     {
-      "multicast_group_id" : 1,
-      "replicas" : [ {
-          "egress_port" : 3,
-          "instance" : 1
+      "table": "MyEgress.NAT_match_action_table",
+      "default_action": true,
+      "action_name": "NoAction",
+      "action_params": { }
+    }
+  ],
+  "multicast_group_entries": [
+    {
+      "multicast_group_id": 1,
+      "replicas": [
+        {
+          "egress_port": 2,
+          "instance": 1
         },
         {
-          "egress_port" : 2,
-          "instance" : 1
+          "egress_port": 3,
+          "instance": 1
         }
-
       ]
-      
     }
-
   ]
 }

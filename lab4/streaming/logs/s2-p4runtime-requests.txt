@@ -1,10 +1,10 @@
 
-[2020-12-11 14:01:36.421] /p4.v1.P4Runtime/SetForwardingPipelineConfig
+[2020-12-13 21:04:39.037] /p4.v1.P4Runtime/SetForwardingPipelineConfig
 ---
-Message too long (31415 bytes)! Skipping log...
+Message too long (33852 bytes)! Skipping log...
 ---
 
-[2020-12-11 14:01:36.463] /p4.v1.P4Runtime/Write
+[2020-12-13 21:04:39.047] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -26,7 +26,7 @@ updates {
 }
 ---
 
-[2020-12-11 14:01:36.485] /p4.v1.P4Runtime/Write
+[2020-12-13 21:04:39.054] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -62,7 +62,43 @@ updates {
 }
 ---
 
-[2020-12-11 14:01:36.500] /p4.v1.P4Runtime/Write
+[2020-12-13 21:04:39.060] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    table_entry {
+      table_id: 37375156
+      match {
+        field_id: 1
+        lpm {
+          value: "\n\000\003\003"
+          prefix_len: 32
+        }
+      }
+      action {
+        action {
+          action_id: 28792405
+          params {
+            param_id: 1
+            value: "\010\000\000\000\003\000"
+          }
+          params {
+            param_id: 2
+            value: "\000\003"
+          }
+        }
+      }
+    }
+  }
+}
+---
+
+[2020-12-13 21:04:39.065] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -82,10 +118,18 @@ updates {
       }
       action {
         action {
-          action_id: 17847194
+          action_id: 24644957
+          params {
+            param_id: 3
+            value: "\000\001"
+          }
           params {
             param_id: 1
-            value: "\000\001"
+            value: "\010\000\000\000\005\000"
+          }
+          params {
+            param_id: 2
+            value: "\000\002"
           }
         }
       }
@@ -94,7 +138,7 @@ updates {
 }
 ---
 
-[2020-12-11 14:01:36.516] /p4.v1.P4Runtime/Write
+[2020-12-13 21:04:39.071] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -104,7 +148,7 @@ updates {
   type: INSERT
   entity {
     table_entry {
-      table_id: 38624947
+      table_id: 34012599
       match {
         field_id: 1
         exact {
@@ -119,10 +163,14 @@ updates {
       }
       action {
         action {
-          action_id: 21603555
+          action_id: 31511005
+          params {
+            param_id: 2
+            value: "\n\000\003\003"
+          }
           params {
             param_id: 1
-            value: "\n\000\003\003"
+            value: "\010\000\000\000\003\000"
           }
         }
       }
@@ -131,7 +179,29 @@ updates {
 }
 ---
 
-[2020-12-11 14:01:36.547] /p4.v1.P4Runtime/Write
+[2020-12-13 21:04:39.077] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: MODIFY
+  entity {
+    table_entry {
+      table_id: 34012599
+      action {
+        action {
+          action_id: 21257015
+        }
+      }
+      is_default_action: true
+    }
+  }
+}
+---
+
+[2020-12-13 21:04:39.082] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -144,11 +214,11 @@ updates {
       multicast_group_entry {
         multicast_group_id: 1
         replicas {
-          egress_port: 3
+          egress_port: 2
           instance: 1
         }
         replicas {
-          egress_port: 2
+          egress_port: 3
           instance: 1
         }
       }

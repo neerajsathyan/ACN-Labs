@@ -278,7 +278,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "streaming.p4",
-        "line" : 279,
+        "line" : 292,
         "column" : 8,
         "source_fragment" : "MyDeparser"
       },
@@ -295,7 +295,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "streaming.p4",
-        "line" : 242,
+        "line" : 253,
         "column" : 9,
         "source_fragment" : "update_checksum ( ..."
       },
@@ -352,7 +352,7 @@
       "id" : 1,
       "source_info" : {
         "filename" : "streaming.p4",
-        "line" : 259,
+        "line" : 271,
         "column" : 8,
         "source_fragment" : "update_checksum_with_payload ( ..."
       },
@@ -401,8 +401,14 @@
   "learn_lists" : [],
   "actions" : [
     {
-      "name" : "MyIngress.drop",
+      "name" : "NoAction",
       "id" : 0,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "MyIngress.drop",
+      "id" : 1,
       "runtime_data" : [],
       "primitives" : [
         {
@@ -424,7 +430,7 @@
     },
     {
       "name" : "MyIngress.ipv4_forward",
-      "id" : 1,
+      "id" : 2,
       "runtime_data" : [
         {
           "name" : "dstAddr",
@@ -538,11 +544,19 @@
       ]
     },
     {
-      "name" : "MyIngress.assign_mcgID",
-      "id" : 2,
+      "name" : "MyIngress.mcast_group",
+      "id" : 3,
       "runtime_data" : [
         {
-          "name" : "mcg",
+          "name" : "dstAddr",
+          "bitwidth" : 48
+        },
+        {
+          "name" : "port",
+          "bitwidth" : 9
+        },
+        {
+          "name" : "mcast_grp_id",
           "bitwidth" : 16
         }
       ],
@@ -555,79 +569,72 @@
               "value" : ["standard_metadata", "mcast_grp"]
             },
             {
-              "type" : "runtime_data",
-              "value" : 0
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "?",
+                  "left" : {
+                    "type" : "local",
+                    "value" : 2
+                  },
+                  "right" : {
+                    "type" : "field",
+                    "value" : ["standard_metadata", "mcast_grp"]
+                  },
+                  "cond" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "d2b",
+                      "left" : null,
+                      "right" : {
+                        "type" : "field",
+                        "value" : ["udp", "$valid$"]
+                      }
+                    }
+                  }
+                }
+              }
             }
-          ],
-          "source_info" : {
-            "filename" : "streaming.p4",
-            "line" : 158,
-            "column" : 8,
-            "source_fragment" : "standard_metadata.mcast_grp = mcg"
-          }
-        }
-      ]
-    },
-    {
-      "name" : "NoAction",
-      "id" : 3,
-      "runtime_data" : [],
-      "primitives" : []
-    },
-    {
-      "name" : "MyEgress.drop",
-      "id" : 4,
-      "runtime_data" : [],
-      "primitives" : [
+          ]
+        },
         {
-          "op" : "mark_to_drop",
+          "op" : "assign",
           "parameters" : [
             {
-              "type" : "header",
-              "value" : "standard_metadata"
-            }
-          ],
-          "source_info" : {
-            "filename" : "streaming.p4",
-            "line" : 193,
-            "column" : 8,
-            "source_fragment" : "mark_to_drop(standard_metadata)"
-          }
-        }
-      ]
-    },
-    {
-      "name" : "MyEgress.drop",
-      "id" : 5,
-      "runtime_data" : [],
-      "primitives" : [
-        {
-          "op" : "mark_to_drop",
-          "parameters" : [
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
             {
-              "type" : "header",
-              "value" : "standard_metadata"
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "?",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["standard_metadata", "egress_spec"]
+                  },
+                  "right" : {
+                    "type" : "local",
+                    "value" : 1
+                  },
+                  "cond" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "d2b",
+                      "left" : null,
+                      "right" : {
+                        "type" : "field",
+                        "value" : ["udp", "$valid$"]
+                      }
+                    }
+                  }
+                }
+              }
             }
-          ],
-          "source_info" : {
-            "filename" : "streaming.p4",
-            "line" : 193,
-            "column" : 8,
-            "source_fragment" : "mark_to_drop(standard_metadata)"
-          }
-        }
-      ]
-    },
-    {
-      "name" : "MyEgress.ipv4_forward",
-      "id" : 6,
-      "runtime_data" : [
-        {
-          "name" : "dstAddr",
-          "bitwidth" : 48
-        }
-      ],
-      "primitives" : [
+          ]
+        },
         {
           "op" : "assign",
           "parameters" : [
@@ -636,16 +643,34 @@
               "value" : ["ethernet", "srcAddr"]
             },
             {
-              "type" : "field",
-              "value" : ["ethernet", "dstAddr"]
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "?",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["ethernet", "srcAddr"]
+                  },
+                  "right" : {
+                    "type" : "field",
+                    "value" : ["ethernet", "dstAddr"]
+                  },
+                  "cond" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "d2b",
+                      "left" : null,
+                      "right" : {
+                        "type" : "field",
+                        "value" : ["udp", "$valid$"]
+                      }
+                    }
+                  }
+                }
+              }
             }
-          ],
-          "source_info" : {
-            "filename" : "streaming.p4",
-            "line" : 200,
-            "column" : 8,
-            "source_fragment" : "hdr.ethernet.srcAddr = hdr.ethernet.dstAddr"
-          }
+          ]
         },
         {
           "op" : "assign",
@@ -655,16 +680,34 @@
               "value" : ["ethernet", "dstAddr"]
             },
             {
-              "type" : "runtime_data",
-              "value" : 0
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "?",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["ethernet", "dstAddr"]
+                  },
+                  "right" : {
+                    "type" : "local",
+                    "value" : 0
+                  },
+                  "cond" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "d2b",
+                      "left" : null,
+                      "right" : {
+                        "type" : "field",
+                        "value" : ["udp", "$valid$"]
+                      }
+                    }
+                  }
+                }
+              }
             }
-          ],
-          "source_info" : {
-            "filename" : "streaming.p4",
-            "line" : 201,
-            "column" : 8,
-            "source_fragment" : "hdr.ethernet.dstAddr = dstAddr"
-          }
+          ]
         },
         {
           "op" : "assign",
@@ -678,14 +721,28 @@
               "value" : {
                 "type" : "expression",
                 "value" : {
-                  "op" : "&",
+                  "op" : "?",
                   "left" : {
+                    "type" : "field",
+                    "value" : ["ipv4", "ttl"]
+                  },
+                  "right" : {
                     "type" : "expression",
                     "value" : {
-                      "op" : "+",
+                      "op" : "&",
                       "left" : {
-                        "type" : "field",
-                        "value" : ["ipv4", "ttl"]
+                        "type" : "expression",
+                        "value" : {
+                          "op" : "+",
+                          "left" : {
+                            "type" : "field",
+                            "value" : ["ipv4", "ttl"]
+                          },
+                          "right" : {
+                            "type" : "hexstr",
+                            "value" : "0xff"
+                          }
+                        }
                       },
                       "right" : {
                         "type" : "hexstr",
@@ -693,29 +750,40 @@
                       }
                     }
                   },
-                  "right" : {
-                    "type" : "hexstr",
-                    "value" : "0xff"
+                  "cond" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "d2b",
+                      "left" : null,
+                      "right" : {
+                        "type" : "field",
+                        "value" : ["udp", "$valid$"]
+                      }
+                    }
                   }
                 }
               }
             }
-          ],
-          "source_info" : {
-            "filename" : "streaming.p4",
-            "line" : 204,
-            "column" : 8,
-            "source_fragment" : "hdr.ipv4.ttl = hdr.ipv4.ttl - 1"
-          }
+          ]
         }
       ]
     },
     {
-      "name" : "MyEgress.set_new_dst",
-      "id" : 7,
+      "name" : "NoAction",
+      "id" : 4,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "MyEgress.update_destination",
+      "id" : 5,
       "runtime_data" : [
         {
-          "name" : "dstAddr",
+          "name" : "dstAddr_mac",
+          "bitwidth" : 48
+        },
+        {
+          "name" : "dstAddr_ip",
           "bitwidth" : 32
         }
       ],
@@ -725,7 +793,7 @@
           "parameters" : [
             {
               "type" : "field",
-              "value" : ["ipv4", "dstAddr"]
+              "value" : ["ethernet", "dstAddr"]
             },
             {
               "type" : "runtime_data",
@@ -734,9 +802,47 @@
           ],
           "source_info" : {
             "filename" : "streaming.p4",
-            "line" : 209,
+            "line" : 204,
             "column" : 8,
-            "source_fragment" : "hdr.ipv4.dstAddr = dstAddr"
+            "source_fragment" : "hdr.ethernet.dstAddr = dstAddr_mac"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ipv4", "dstAddr"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 1
+            }
+          ],
+          "source_info" : {
+            "filename" : "streaming.p4",
+            "line" : 205,
+            "column" : 8,
+            "source_fragment" : "hdr.ipv4.dstAddr = dstAddr_ip"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["udp", "checksum"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x0000"
+            }
+          ],
+          "source_info" : {
+            "filename" : "streaming.p4",
+            "line" : 206,
+            "column" : 8,
+            "source_fragment" : "hdr.udp.checksum = 0"
           }
         }
       ]
@@ -759,7 +865,7 @@
           "id" : 0,
           "source_info" : {
             "filename" : "streaming.p4",
-            "line" : 162,
+            "line" : 166,
             "column" : 10,
             "source_fragment" : "ipv4_lpm"
           },
@@ -777,16 +883,17 @@
           "with_counters" : false,
           "support_timeout" : false,
           "direct_meters" : null,
-          "action_ids" : [2, 1, 0],
-          "actions" : ["MyIngress.assign_mcgID", "MyIngress.ipv4_forward", "MyIngress.drop"],
+          "action_ids" : [2, 1, 0, 3],
+          "actions" : ["MyIngress.ipv4_forward", "MyIngress.drop", "NoAction", "MyIngress.mcast_group"],
           "base_default_next" : null,
           "next_tables" : {
-            "MyIngress.assign_mcgID" : null,
             "MyIngress.ipv4_forward" : null,
-            "MyIngress.drop" : null
+            "MyIngress.drop" : null,
+            "NoAction" : null,
+            "MyIngress.mcast_group" : null
           },
           "default_entry" : {
-            "action_id" : 0,
+            "action_id" : 1,
             "action_const" : false,
             "action_data" : [],
             "action_entry_const" : false
@@ -800,7 +907,7 @@
           "id" : 0,
           "source_info" : {
             "filename" : "streaming.p4",
-            "line" : 176,
+            "line" : 181,
             "column" : 12,
             "source_fragment" : "hdr.ipv4.isValid()"
           },
@@ -825,20 +932,20 @@
       "id" : 1,
       "source_info" : {
         "filename" : "streaming.p4",
-        "line" : 187,
+        "line" : 192,
         "column" : 8,
         "source_fragment" : "MyEgress"
       },
       "init_table" : "node_6",
       "tables" : [
         {
-          "name" : "MyEgress.nat_table",
+          "name" : "MyEgress.NAT_match_action_table",
           "id" : 1,
           "source_info" : {
             "filename" : "streaming.p4",
-            "line" : 213,
+            "line" : 225,
             "column" : 10,
-            "source_fragment" : "nat_table"
+            "source_fragment" : "NAT_match_action_table"
           },
           "key" : [
             {
@@ -860,49 +967,18 @@
           "with_counters" : false,
           "support_timeout" : false,
           "direct_meters" : null,
-          "action_ids" : [6, 7, 4, 3],
-          "actions" : ["MyEgress.ipv4_forward", "MyEgress.set_new_dst", "MyEgress.drop", "NoAction"],
+          "action_ids" : [4, 5],
+          "actions" : ["NoAction", "MyEgress.update_destination"],
           "base_default_next" : null,
           "next_tables" : {
-            "MyEgress.ipv4_forward" : null,
-            "MyEgress.set_new_dst" : null,
-            "MyEgress.drop" : null,
-            "NoAction" : null
+            "NoAction" : null,
+            "MyEgress.update_destination" : null
           },
           "default_entry" : {
-            "action_id" : 3,
+            "action_id" : 4,
             "action_const" : false,
             "action_data" : [],
             "action_entry_const" : false
-          }
-        },
-        {
-          "name" : "tbl_drop",
-          "id" : 2,
-          "source_info" : {
-            "filename" : "streaming.p4",
-            "line" : 231,
-            "column" : 12,
-            "source_fragment" : "drop()"
-          },
-          "key" : [],
-          "match_type" : "exact",
-          "type" : "simple",
-          "max_size" : 1024,
-          "with_counters" : false,
-          "support_timeout" : false,
-          "direct_meters" : null,
-          "action_ids" : [5],
-          "actions" : ["MyEgress.drop"],
-          "base_default_next" : null,
-          "next_tables" : {
-            "MyEgress.drop" : null
-          },
-          "default_entry" : {
-            "action_id" : 5,
-            "action_const" : true,
-            "action_data" : [],
-            "action_entry_const" : true
           }
         }
       ],
@@ -913,26 +989,23 @@
           "id" : 1,
           "source_info" : {
             "filename" : "streaming.p4",
-            "line" : 227,
+            "line" : 241,
             "column" : 12,
-            "source_fragment" : "standard_metadata.ingress_port != standard_metadata.egress_port"
+            "source_fragment" : "hdr.udp.isValid()"
           },
           "expression" : {
             "type" : "expression",
             "value" : {
-              "op" : "!=",
-              "left" : {
-                "type" : "field",
-                "value" : ["standard_metadata", "ingress_port"]
-              },
+              "op" : "d2b",
+              "left" : null,
               "right" : {
                 "type" : "field",
-                "value" : ["standard_metadata", "egress_port"]
+                "value" : ["udp", "$valid$"]
               }
             }
           },
-          "true_next" : "MyEgress.nat_table",
-          "false_next" : "tbl_drop"
+          "false_next" : null,
+          "true_next" : "MyEgress.NAT_match_action_table"
         }
       ]
     }
@@ -943,7 +1016,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "streaming.p4",
-        "line" : 242,
+        "line" : 253,
         "column" : 9,
         "source_fragment" : "update_checksum ( ..."
       },
@@ -969,7 +1042,7 @@
       "id" : 1,
       "source_info" : {
         "filename" : "streaming.p4",
-        "line" : 259,
+        "line" : 271,
         "column" : 8,
         "source_fragment" : "update_checksum_with_payload ( ..."
       },

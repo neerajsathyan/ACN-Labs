@@ -14,21 +14,24 @@ tables {
     match_type: LPM
   }
   action_refs {
-    id: 17847194
-  }
-  action_refs {
     id: 28792405
   }
   action_refs {
     id: 25652968
   }
+  action_refs {
+    id: 21257015
+  }
+  action_refs {
+    id: 24644957
+  }
   size: 1024
 }
 tables {
   preamble {
-    id: 38624947
-    name: "MyEgress.nat_table"
-    alias: "nat_table"
+    id: 34012599
+    name: "MyEgress.NAT_match_action_table"
+    alias: "NAT_match_action_table"
   }
   match_fields {
     id: 1
@@ -43,33 +46,33 @@ tables {
     match_type: EXACT
   }
   action_refs {
-    id: 17178992
-  }
-  action_refs {
-    id: 21603555
-  }
-  action_refs {
-    id: 20880156
-  }
-  action_refs {
     id: 21257015
-    annotations: "@defaultonly"
-    scope: DEFAULT_ONLY
+  }
+  action_refs {
+    id: 31511005
   }
   size: 1024
 }
 actions {
   preamble {
+    id: 21257015
+    name: "NoAction"
+    alias: "NoAction"
+    annotations: "@noWarn(\"unused\")"
+  }
+}
+actions {
+  preamble {
     id: 25652968
     name: "MyIngress.drop"
-    alias: "MyIngress.drop"
+    alias: "drop"
   }
 }
 actions {
   preamble {
     id: 28792405
     name: "MyIngress.ipv4_forward"
-    alias: "MyIngress.ipv4_forward"
+    alias: "ipv4_forward"
   }
   params {
     id: 1
@@ -84,52 +87,40 @@ actions {
 }
 actions {
   preamble {
-    id: 17847194
-    name: "MyIngress.assign_mcgID"
-    alias: "assign_mcgID"
-  }
-  params {
-    id: 1
-    name: "mcg"
-    bitwidth: 16
-  }
-}
-actions {
-  preamble {
-    id: 21257015
-    name: "NoAction"
-    alias: "NoAction"
-    annotations: "@noWarn(\"unused\")"
-  }
-}
-actions {
-  preamble {
-    id: 20880156
-    name: "MyEgress.drop"
-    alias: "MyEgress.drop"
-  }
-}
-actions {
-  preamble {
-    id: 17178992
-    name: "MyEgress.ipv4_forward"
-    alias: "MyEgress.ipv4_forward"
+    id: 24644957
+    name: "MyIngress.mcast_group"
+    alias: "mcast_group"
   }
   params {
     id: 1
     name: "dstAddr"
     bitwidth: 48
   }
+  params {
+    id: 2
+    name: "port"
+    bitwidth: 9
+  }
+  params {
+    id: 3
+    name: "mcast_grp_id"
+    bitwidth: 16
+  }
 }
 actions {
   preamble {
-    id: 21603555
-    name: "MyEgress.set_new_dst"
-    alias: "set_new_dst"
+    id: 31511005
+    name: "MyEgress.update_destination"
+    alias: "update_destination"
   }
   params {
     id: 1
-    name: "dstAddr"
+    name: "dstAddr_mac"
+    bitwidth: 48
+  }
+  params {
+    id: 2
+    name: "dstAddr_ip"
     bitwidth: 32
   }
 }

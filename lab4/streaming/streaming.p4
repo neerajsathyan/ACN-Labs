@@ -101,7 +101,7 @@ parser MyParser(packet_in packet,
     // Parse ipv4
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
-        transition select((bit<16>) hdr.ipv4.protocol) { // cast to 16 bit as else errors occur
+        transition select((bit<16>)hdr.ipv4.protocol) {
             PROTOCOL_UDP: parse_udp;
             default: accept;
         }
@@ -154,8 +154,12 @@ control MyIngress(inout headers hdr,
     }
 
     // Assign multicast group ID
-    action assign_mcgID(mcg_t mcg) {
-        standard_metadata.mcast_grp = mcg;
+    action mcast_group(macAddr_t dstAddr, egressSpec_t port, mcg_t mcast_grp_id) {
+        if(hdr.udp.isValid()) {
+            standard_metadata.mcast_grp = mcast_grp_id;
+        } else {
+            ipv4_forward(dstAddr, port);
+        }
     }
     
     // Ipv4_LPM table from tutorial
@@ -164,9 +168,10 @@ control MyIngress(inout headers hdr,
             hdr.ipv4.dstAddr: lpm;
         }
         actions = {
-            assign_mcgID;
             ipv4_forward;
             drop;
+            NoAction;
+            mcast_group;
         }
         size = 1024;
         default_action = drop();
@@ -192,8 +197,15 @@ control MyEgress(inout headers hdr,
     action drop() {
         mark_to_drop(standard_metadata);
     }
-    
-    
+
+
+    //Multicast UDP Packets, changing destination mac AND IP to h3..
+    action update_destination(macAddr_t dstAddr_mac, ip4Addr_t dstAddr_ip) {
+        hdr.ethernet.dstAddr = dstAddr_mac;
+        hdr.ipv4.dstAddr = dstAddr_ip;
+        hdr.udp.checksum = 0;
+    }
+
     // Forward ipv4 packet
     action ipv4_forward(macAddr_t dstAddr) {
         // Port is set in set_mcg
@@ -210,26 +222,25 @@ control MyEgress(inout headers hdr,
     }
     
     // Ipv4_LPM table from tutorial
-    table nat_table {
+    table NAT_match_action_table {
         key = {
             standard_metadata.egress_rid : exact;
             standard_metadata.egress_port: exact;
         }
         actions = {
-            ipv4_forward;
-            set_new_dst;
-            drop;
+            NoAction;
+            update_destination;
         }
+
+        size = 1024;
+        default_action = NoAction;
     }
     
     apply {
         // drop packet when it's send to ingress port
-        if (standard_metadata.ingress_port != standard_metadata.egress_port) {
-			nat_table.apply();
+        if (hdr.udp.isValid()) {
+            NAT_match_action_table.apply();
     	}
-        else {
-            drop();	
-		} 
     }
 }
 
@@ -254,22 +265,24 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
                   hdr.ipv4.srcAddr,
                   hdr.ipv4.dstAddr
                 },
-                hdr.ipv4.hdrChecksum, HashAlgorithm.csum16);
+                hdr.ipv4.hdrChecksum,
+                HashAlgorithm.csum16);
 
         update_checksum_with_payload (
 			hdr.udp.isValid(), 
 			{
-				hdr.ipv4.srcAddr,
-    			hdr.ipv4.dstAddr,
-    			8w0,
-    			hdr.ipv4.protocol,
-    			hdr.udp.oct_length,
-    			hdr.udp.src_port,
-    			hdr.udp.dst_port,
-    			hdr.udp.oct_length
-			}, 
-            hdr.udp.checksum, HashAlgorithm.csum16);
-    }
+			    hdr.ipv4.srcAddr,
+    			    hdr.ipv4.dstAddr,
+    			    8w0,
+    			    hdr.ipv4.protocol,
+    			    hdr.udp.oct_length,
+    			    hdr.udp.src_port,
+    			    hdr.udp.dst_port,
+    			    hdr.udp.oct_length
+			},
+                        hdr.udp.checksum,
+                        HashAlgorithm.csum16);
+     }
 }
 
 /*************************************************************************
@@ -280,7 +293,7 @@ control MyDeparser(packet_out packet, in headers hdr) {
     apply {
         packet.emit(hdr.ethernet);
         packet.emit(hdr.ipv4);
-		packet.emit(hdr.udp);
+	packet.emit(hdr.udp);
     }
 }
 

@@ -2,6 +2,7 @@
 #include <core.p4>
 #include <v1model.p4>
 
+// Defining constants
 const bit<16> TYPE_IPV4 = 0x800;
 
 /*************************************************************************
@@ -13,12 +14,13 @@ typedef bit<48> macAddr_t;
 typedef bit<32> ip4Addr_t;
 
 header ethernet_t {
+    // Ethernet Headers..
     macAddr_t dstAddr;
     macAddr_t srcAddr;
     bit<16>   etherType;
 }
 
-// Define header format of ipv4 
+// IPv4 Headers..
 header ipv4_t {
     bit<4>    version;
     bit<4>    ihl;
@@ -38,6 +40,7 @@ struct metadata {
     /* empty */
 }
 
+// header struct
 struct headers {
     ethernet_t ethernet;
     ipv4_t ipv4;
@@ -56,7 +59,10 @@ parser MyParser(packet_in packet,
         transition parse_ethernet;
     }
 
-    // Parse ethernet
+    /*
+     * If type is IPv4, then parse_ipv4
+     * else accept state..
+     */
     state parse_ethernet {
         packet.extract(hdr.ethernet);
         transition select(hdr.ethernet.etherType) {
@@ -65,7 +71,9 @@ parser MyParser(packet_in packet,
         }
     }
 
-    // Parse ipv4
+    /*
+     * IPv4 packet transition to accept state..
+     */
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
         transition accept;
@@ -97,6 +105,10 @@ control MyIngress(inout headers hdr,
     
     
     // Forward ipv4 packet
+    /*
+     * egress port->destination MAC to source MAC of next HOP conversion
+     * ->New MAC Address from table->TTL Reduction..
+     */
     action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
         standard_metadata.egress_spec = port;
         hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
@@ -160,7 +172,8 @@ control MyComputeChecksum(inout headers  hdr, inout metadata meta) {
                   hdr.ipv4.srcAddr,
                   hdr.ipv4.dstAddr
                 },
-                hdr.ipv4.hdrChecksum, HashAlgorithm.csum16);
+                hdr.ipv4.hdrChecksum,
+                HashAlgorithm.csum16);
     }
 }
 
